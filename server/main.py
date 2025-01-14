@@ -85,5 +85,5 @@ def decode_smart_health_card(shc_data):
     
 if __name__ == '__main__':
     CORS(app)
-    # app.run(host='0.0.0.0', port=5000)
-    app.run()
+    app.run(host='0.0.0.0', port=10000)
+    # app.run()
