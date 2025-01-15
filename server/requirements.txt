@@ -2,3 +2,4 @@ gunicorn
 Werkzeug
 Flask
 Flask-Cors
+requests==2.31.0
