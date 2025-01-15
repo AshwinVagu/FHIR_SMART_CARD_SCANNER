@@ -4,6 +4,7 @@ import os
 import base64
 import json
 import zlib
+import requests
 
 
 # The Flask app object is created here.
@@ -32,7 +33,11 @@ def qr_decoding():
         payload = request.get_json()
         code = payload['qr_result']
         result = decode_smart_health_card(code)
-        return jsonify({"result":result}), 201
+        try:
+            verified = verify_iss(result[1]['iss'])
+        except:
+            verified = False    
+        return jsonify({"result":result,"verified":verified}), 201
     except Exception as error_message:
         return jsonify({"message":error_message}),500  
     
@@ -81,7 +86,71 @@ def decode_smart_health_card(shc_data):
         return None
     except Exception as e:
         print(f"Error decoding SMART Health Card: {e}")
-        return None    
+        return None 
+
+def verify_iss(iss):
+    smart_config_url = f"{iss}/.well-known/smart-configuration"
+
+    # Fetch SMART configuration
+    try:
+        response = requests.get(smart_config_url)
+        response.raise_for_status()
+        smart_config = response.json()  
+    except requests.exceptions.RequestException as e:
+        raise Exception(f"Failed to fetch SMART configuration: {e}")
+
+    # Validate `iss`
+    if smart_config.get("issuer") != iss:
+        raise Exception("Issuer validation failed. The 'iss' does not match the SMART configuration's issuer.")
+
+    # Check required endpoints
+    required_fields = ["authorization_endpoint", "token_endpoint", "capabilities"]
+    for field in required_fields:
+        if field not in smart_config:
+            raise Exception(f"SMART configuration missing required field: {field}")
+
+    # Ensure HTTPS
+    if not iss.startswith("https://"):
+        raise Exception("Issuer must use HTTPS.")
+    for field in ["authorization_endpoint", "token_endpoint"]:
+        if not smart_config.get(field, "").startswith("https://"):
+            raise Exception(f"{field} must use HTTPS.")
+
+    print("Issuer verified successfully and SMART configuration is valid.")
+    return True       
+
+
+def verify_iss(iss):
+    smart_config_url = f"{iss}/.well-known/smart-configuration"
+
+    # Fetch SMART configuration
+    try:
+        response = requests.get(smart_config_url)
+        response.raise_for_status()
+        smart_config = response.json()  
+    except requests.exceptions.RequestException as e:
+        raise Exception(f"Failed to fetch SMART configuration: {e}")
+
+    # Validate `iss`
+    if smart_config.get("issuer") != iss:
+        raise Exception("Issuer validation failed. The 'iss' does not match the SMART configuration's issuer.")
+
+    # Check required endpoints
+    required_fields = ["authorization_endpoint", "token_endpoint", "capabilities"]
+    for field in required_fields:
+        if field not in smart_config:
+            raise Exception(f"SMART configuration missing required field: {field}")
+
+    # Ensure HTTPS
+    if not iss.startswith("https://"):
+        raise Exception("Issuer must use HTTPS.")
+    for field in ["authorization_endpoint", "token_endpoint"]:
+        if not smart_config.get(field, "").startswith("https://"):
+            raise Exception(f"{field} must use HTTPS.")
+
+    print("Issuer verified successfully and SMART configuration is valid.")
+    return True
+
     
 if __name__ == '__main__':
     CORS(app)
